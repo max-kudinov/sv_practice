@@ -70,8 +70,8 @@ module fifo_tb();
         wait(~rst);
 
         fork
-            drive_in($urandom_range(0, 10));
-            drive_out($urandom_range(0, 10));
+            drive_in ($urandom_range(DELAY_MIN, DELAY_MAX));
+            drive_out($urandom_range(DELAY_MIN, DELAY_MAX));
             scoreboard();
         join
     end
