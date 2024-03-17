@@ -40,7 +40,7 @@ module fifo
         else begin
             if (push) begin
                 assert(~full) else $error("Fifo overflow at %t", $time);
-                wr_ptr       <= wr_ptr + 1'b1;
+                wr_ptr     <= wr_ptr + 1'b1;
                 data[wr_ptr[W_PTR - 2:0]] <= up_data;
             end
             if (pop) begin
