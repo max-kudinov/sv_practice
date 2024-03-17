@@ -2,29 +2,27 @@
 
 module fifo_tb();
     localparam CLK_PERIOD = 10;
-    localparam WIDTH      = 8;
-    localparam DEPTH      = 8;
+    localparam W_FIFO     = 8;
+    localparam D_FIFO     = 8;
     localparam DELAY_MIN  = 0;
-    localparam DELAY_MAX  = 10;
+    localparam DELAY_MAX  = 100;
+    localparam CHECKS     = 1000;
 
     logic clk, rst;
 
-    logic [WIDTH - 1:0] up_data;
-    logic [WIDTH - 1:0] down_data;
+    logic [W_FIFO - 1:0] up_data;
+    logic [W_FIFO - 1:0] down_data;
     logic               up_valid;
     logic               down_ready;
-    logic               push;
-    logic               pop;
 
-    logic [WIDTH - 1:0] queue [$:DEPTH];
-
-    logic [WIDTH - 1:0] in_q  [$];
-    logic [WIDTH - 1:0] out_q [$];
+    // Using queues because iverilog doesn't support mailboxes
+    logic [W_FIFO - 1:0] model_fifo [$];
+    logic [W_FIFO - 1:0] dut_fifo   [$];
 
     fifo
     # (
-        .WIDTH(WIDTH),
-        .DEPTH(DEPTH)
+        .W_FIFO ( W_FIFO ),
+        .D_FIFO ( D_FIFO )
     )
     DUT
     (
@@ -48,85 +46,87 @@ module fifo_tb();
         reset();
         init();
 
-        forever begin
-            @(posedge clk);
-
-            push = up_valid & queue.size() < DEPTH;
-            pop  = down_ready & queue.size() != 0;
-
-            if (push) in_q.push_back(up_data);
-            if (pop)  out_q.push_back(down_data);
-
-            if (rst)
-                queue = {};
-            else if (push)
-                queue.push_back(up_data);
-            else if (pop)
-                queue.delete(0);
-        end
-    end
-
-    initial begin
-        wait(~rst);
-
         fork
-            drive_in ($urandom_range(DELAY_MIN, DELAY_MAX));
-            drive_out($urandom_range(DELAY_MIN, DELAY_MAX));
+            drive_in (DELAY_MIN, DELAY_MAX);
+            drive_out(DELAY_MIN, DELAY_MAX);
+            monitor();
             scoreboard();
         join
     end
 
     task init();
-        in_q  = {};
-        out_q = {};
-
         down_ready <= 0;
         up_valid   <= 0;
+
+        dut_fifo    = {};
+        model_fifo  = {};
     endtask
 
-    task drive_in(int delay = 0);
+    task drive_in(int delay_min, int delay_max);
+        int delay;
         forever begin
+            delay = $urandom_range(delay_min, delay_max);
             repeat (delay) @(posedge clk);
+
             up_valid <= 1;
             up_data  <= $urandom();
-
             @(posedge clk);
             up_valid <= 0;
         end
     endtask
 
-    task drive_out(int delay = 0);
+    task drive_out(int delay_min, int delay_max);
+        int delay;
         forever begin
+            delay = $urandom_range(delay_min, delay_max);
             repeat (delay) @(posedge clk);
+
             down_ready <= 1;
             @(posedge clk);
-
             down_ready <= 0;
         end
     endtask
 
+    task monitor();
+        int model_size = 0;
+
+        forever begin
+            @(posedge clk);
+            if (up_valid & model_size < 2 ** D_FIFO) begin
+                model_fifo.push_back(up_data);
+                model_size++;
+            end
+
+            if (down_ready & model_size > 0) begin
+                dut_fifo.push_back(down_data);
+                model_size--;
+            end
+        end
+    endtask
+
     task scoreboard();
-        repeat(10) begin
-            int fifo_in, fifo_out;
+        logic [W_FIFO - 1:0] fifo_in, fifo_out;
+        repeat(CHECKS) begin
 
             do begin
                 @(posedge clk);
             end
-            while (in_q.size() == 0);
+            while (model_fifo.size() == 0);
 
-            fifo_in = in_q[0];
-            in_q.delete(0);
+            fifo_in = model_fifo[0];
+            model_fifo.delete(0);
 
             do begin
                 @(posedge clk);
             end
-            while (out_q.size() == 0);
+            while (dut_fifo.size() == 0);
 
-            fifo_out = out_q[0];
-            out_q.delete(0);
+            fifo_out = dut_fifo[0];
+            dut_fifo.delete(0);
 
             if (fifo_in !== fifo_out) begin
-                $display("Error at time %t, in: %d, out: %d", $time, fifo_in, fifo_out);
+                $display("Error at time %t, in: %d, out: %d",
+                          $time, fifo_in, fifo_out);
                 $finish();
             end
         end
