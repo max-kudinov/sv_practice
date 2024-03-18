@@ -9,6 +9,8 @@ module fifo
     input  [W_FIFO - 1:0] up_data,
     input                 up_valid,
     input                 down_ready,
+    output                full,
+    output                empty,
     output [W_FIFO - 1:0] down_data
 );
 
@@ -17,8 +19,6 @@ module fifo
     logic [W_FIFO - 1:0] data [2 ** D_FIFO - 1:0];
     logic [W_PTR  - 1:0] rd_ptr;
     logic [W_PTR  - 1:0] wr_ptr;
-    logic                full;
-    logic                empty;
     logic                push;
     logic                pop;
 
