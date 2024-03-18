@@ -5,9 +5,9 @@ module a_plus_b_tb ();
     localparam W_FIFO         = 8;
     localparam D_FIFO         = 8;
     localparam PUSH_DELAY_MIN = 0;
-    localparam PUSH_DELAY_MAX = 10;
+    localparam PUSH_DELAY_MAX = 20;
     localparam POP_DELAY_MIN  = 0;
-    localparam POP_DELAY_MAX  = 20;
+    localparam POP_DELAY_MAX  = 10;
     localparam CHECKS         = 1000;
 
     logic                clk;
@@ -80,7 +80,12 @@ module a_plus_b_tb ();
 
             up_valid_a <= 1;
             up_data_a  <= $urandom();
-            @(posedge clk);
+
+            do begin
+                @(posedge clk);
+            end
+            while (~up_ready_a);
+
             up_valid_a <= 0;
         end
     endtask
@@ -94,7 +99,12 @@ module a_plus_b_tb ();
 
             up_valid_b <= 1;
             up_data_b  <= $urandom();
-            @(posedge clk);
+
+            do begin
+                @(posedge clk);
+            end
+            while (~up_ready_b);
+
             up_valid_b <= 0;
         end
     endtask
@@ -107,7 +117,12 @@ module a_plus_b_tb ();
             repeat (delay) @(posedge clk);
 
             down_ready_sum <= 1;
-            @(posedge clk);
+
+            do begin
+                @(posedge clk);
+            end
+            while (~down_valid_sum);
+
             down_ready_sum <= 0;
         end
     endtask
@@ -135,6 +150,8 @@ module a_plus_b_tb ();
         logic [W_FIFO    :0] sum;
 
         repeat (CHECKS) begin
+
+            // We mimick mailbox get() with this
             do begin
                 @(posedge clk);
             end
