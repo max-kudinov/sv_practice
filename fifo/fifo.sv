@@ -6,12 +6,16 @@ module fifo
 (
     input                 clk,
     input                 rst,
+
+    // FIFO front
     input  [W_FIFO - 1:0] up_data,
     input                 up_valid,
-    input                 down_ready,
-    output                full,
-    output                empty,
-    output [W_FIFO - 1:0] down_data
+    output                up_ready,
+
+    // FIFO back
+    output [W_FIFO - 1:0] down_data,
+    output                down_valid,
+    input                 down_ready
 );
 
     localparam W_PTR = D_FIFO + 1;
@@ -21,14 +25,19 @@ module fifo
     logic [W_PTR  - 1:0] wr_ptr;
     logic                push;
     logic                pop;
+    logic                full;
+    logic                empty;
 
     assign full = (rd_ptr[W_PTR - 2:0] == wr_ptr[W_PTR - 2:0]) &
                   (rd_ptr[W_PTR - 1]   != wr_ptr[W_PTR - 1]);
 
     assign empty = rd_ptr[W_PTR - 1:0] == wr_ptr[W_PTR - 1:0];
 
-    assign push = up_valid   & ~full;
-    assign pop  = down_ready & ~empty;
+    assign up_ready   = ~ full;
+    assign down_valid = ~ empty;
+
+    assign push = up_valid   & up_ready;
+    assign pop  = down_valid & down_ready;
 
     assign down_data = data[rd_ptr[W_PTR - 2:0]];
 

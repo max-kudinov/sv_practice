@@ -14,8 +14,6 @@ module fifo_tb();
     logic [W_FIFO - 1:0] down_data;
     logic                up_valid;
     logic                down_ready;
-    logic                full;
-    logic                empty;
 
     // Using queues because iverilog doesn't support mailboxes
     logic [W_FIFO - 1:0] model_fifo [$];
@@ -32,8 +30,6 @@ module fifo_tb();
         .rst        ( rst        ),
         .up_data    ( up_data    ),
         .up_valid   ( up_valid   ),
-        .full       ( full       ),
-        .empty      ( empty      ),
         .down_ready ( down_ready ),
         .down_data  ( down_data  )
     );
