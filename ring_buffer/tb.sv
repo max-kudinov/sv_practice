@@ -26,7 +26,7 @@ module tb;
         rst <= 0;
     end
 
-    ring_buffer #(
+    ring_buffer_with_single_pointer #(
         .WIDTH ( WIDTH ),
         .DEPTH ( DEPTH )
     ) DUT (
@@ -37,7 +37,7 @@ module tb;
         .data_o   ( ring_data_out )
     );
 
-    shift_reg_model #(
+    shift_reg_with_global_enable #(
         .WIDTH ( WIDTH ),
         .DEPTH ( DEPTH )
     ) model (

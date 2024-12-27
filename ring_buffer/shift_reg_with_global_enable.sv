@@ -1,4 +1,4 @@
-module shift_reg_model #(
+module shift_reg_with_global_enable #(
     parameter WIDTH = 8,
     parameter DEPTH = 8
 ) (

@@ -1,4 +1,4 @@
-module ring_buffer #(
+module ring_buffer_with_single_pointer #(
     parameter WIDTH = 8,
     parameter DEPTH = 8
 ) (
