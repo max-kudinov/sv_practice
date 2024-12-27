@@ -11,6 +11,9 @@ module tb;
     logic [WIDTH-1:0] ring_data_out;
     logic [WIDTH-1:0] shift_data_out;
 
+    logic [WIDTH-1:0] queue [$:DEPTH];
+    logic [WIDTH-1:0] queue_out;
+
     initial begin
         clk = 0;
 
@@ -54,6 +57,7 @@ module tb;
         fork
             driver();
             monitor();
+            model_queue();
             timeout();
         join
     end
@@ -71,6 +75,22 @@ module tb;
             @(posedge clk);
             if (ring_data_out !== shift_data_out) begin
                 $error("Expected %d, got %d", shift_data_out, ring_data_out);
+            end
+
+            if (ring_data_out !== queue_out) begin
+                $error("Expected %d, got %d", queue_out, ring_data_out);
+            end
+        end
+    endtask
+
+    task model_queue;
+        forever begin
+            @(posedge clk);
+            if (enable) begin
+                if (queue.size == DEPTH-1) begin
+                    queue_out <= queue.pop_front();
+                end
+                queue.push_back(data_in);
             end
         end
     endtask
