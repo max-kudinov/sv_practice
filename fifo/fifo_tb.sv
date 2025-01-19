@@ -1,5 +1,3 @@
-`timescale 1ns/100ps
-
 module fifo_tb();
     localparam CLK_PERIOD     = 10;
     localparam W_FIFO         = 8;
@@ -18,27 +16,39 @@ module fifo_tb();
     logic                up_ready;
     logic                down_valid;
     logic                down_ready;
+    logic                full;
+    logic                empty;
+    logic                wr_en;
+    logic                rd_en;
+    logic                up_handshake;
+    logic                down_handshake;
 
     // Using queues because iverilog doesn't support mailboxes
     logic [W_FIFO - 1:0] fifo_in  [$];
     logic [W_FIFO - 1:0] fifo_out [$];
 
-    fifo
-    # (
-        .W_FIFO ( W_FIFO ),
-        .D_FIFO ( D_FIFO )
-    )
-    DUT
-    (
-        .clk        ( clk        ),
-        .rst        ( rst        ),
-        .up_data    ( up_data    ),
-        .up_valid   ( up_valid   ),
-        .up_ready   ( up_ready   ),
-        .down_valid ( down_valid ),
-        .down_ready ( down_ready ),
-        .down_data  ( down_data  )
+    fifo_dualport # (
+        .WIDTH ( W_FIFO ),
+        .DEPTH ( D_FIFO )
+    ) DUT (
+        .clk_i      ( clk        ),
+        .rst_i      ( rst        ),
+        .wr_en_i    ( wr_en      ),
+        .rd_en_i    ( rd_en      ),
+        .data_i     ( up_data    ),
+        .data_o     ( down_data  ),
+        .empty_o    ( empty      ),
+        .full_o     ( full       )
     );
+
+    // Convert raw FIFO signals to valid/ready
+    assign up_ready   = ~full || down_ready;
+    assign down_valid = ~empty;
+    assign wr_en      = up_handshake;
+    assign rd_en      = down_handshake;
+
+    assign up_handshake   = up_valid && up_ready;
+    assign down_handshake = down_valid && down_ready;
 
     initial begin
         clk = 0;
@@ -48,7 +58,7 @@ module fifo_tb();
     end
 
     initial begin
-        dump  ();
+        $dumpvars;
         reset ();
         init  ();
 
@@ -76,7 +86,7 @@ module fifo_tb();
             repeat (delay) @(posedge clk);
 
             up_valid <= 1;
-            up_data  <= $urandom();
+            up_data  <= W_FIFO'($urandom());
 
             do begin
                 @(posedge clk);
@@ -109,10 +119,10 @@ module fifo_tb();
         forever begin
             @(posedge clk);
 
-            if (up_valid & up_ready)
+            if (up_handshake)
                 fifo_in.push_back(up_data);
 
-            if (down_ready & down_valid)
+            if (down_handshake)
                 fifo_out.push_back(down_data);
         end
     endtask
@@ -156,8 +166,4 @@ module fifo_tb();
         rst = 0;
     endtask
 
-    task dump();
-        $dumpfile("fifo.vcd");
-        $dumpvars;
-    endtask
 endmodule
