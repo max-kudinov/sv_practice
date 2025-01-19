@@ -2,14 +2,14 @@ module fifo_dualport #(
     parameter WIDTH = 8,
     parameter DEPTH = 8
 ) (
-    input  wire             clk_i,
-    input  wire             rst_i,
-    input  wire             wr_en_i,
-    input  wire             rd_en_i,
-    input  wire [WIDTH-1:0] data_i,
-    output wire [WIDTH-1:0] data_o,
-    output wire             empty_o,
-    output wire             full_o
+    input  logic             clk_i,
+    input  logic             rst_i,
+    input  logic             wr_en_i,
+    input  logic             rd_en_i,
+    input  logic [WIDTH-1:0] data_i,
+    output logic [WIDTH-1:0] data_o,
+    output logic             empty_o,
+    output logic             full_o
 );
 
     // ------------------------------------------------------------------------
