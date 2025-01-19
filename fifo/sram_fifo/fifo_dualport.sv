@@ -26,7 +26,6 @@ module fifo_dualport #(
     // FIFO control
     logic             push;
     logic             pop;
-    logic             shift;
 
     // SRAM
     logic             ren;
@@ -53,7 +52,8 @@ module fifo_dualport #(
     // Don't read from memory when almost empty, because the last element
     // has been already prefetched and its value is present on output
     assign ren = pop && ~almost_empty;
-    assign wen = push || shift;
+    // Don't write to memory when we write to the bypass register
+    assign wen = push && ~enable_bypass;
 
     sram_dualport #(
         .WIDTH ( WIDTH ),
@@ -102,9 +102,8 @@ module fifo_dualport #(
     // Main FIFO logic
     // ------------------------------------------------------------------------
 
-    assign push    = wr_en_i && ~full_o;
+    assign push    = (wr_en_i && ~full_o) || (full_o && wr_en_i && rd_en_i);
     assign pop     = rd_en_i && ~empty_o;
-    assign shift   = full_o  && wr_en_i && rd_en_i;
 
     assign empty_o = (wr_ptr == rd_ptr) && (wr_circle_odd == rd_circle_odd);
     assign full_o  = (wr_ptr == rd_ptr) && (wr_circle_odd != rd_circle_odd);
@@ -116,7 +115,7 @@ module fifo_dualport #(
         if (rst_i) begin
             wr_ptr        <= W_PTR'(0);
             wr_circle_odd <= 1'b0;
-        end else if (push || shift) begin
+        end else if (push) begin
             if (wr_ptr == MAX_PTR) begin
                 wr_ptr        <= W_PTR'(0);
                 wr_circle_odd <= ~wr_circle_odd;
@@ -130,7 +129,7 @@ module fifo_dualport #(
         if (rst_i) begin
             rd_ptr        <= W_PTR'(0);
             rd_circle_odd <= 1'b0;
-        end else if (pop || shift) begin
+        end else if (pop) begin
             if (rd_ptr == MAX_PTR) begin
                 rd_ptr        <= W_PTR'(0);
                 rd_circle_odd <= ~rd_circle_odd;
