@@ -1,61 +1,84 @@
-module fifo
-# (
-    parameter W_FIFO = 8,
-    parameter D_FIFO = 8
-)
-(
-    input                 clk,
-    input                 rst,
-
-    // FIFO front
-    input  [W_FIFO - 1:0] up_data,
-    input                 up_valid,
-    output                up_ready,
-
-    // FIFO back
-    output [W_FIFO - 1:0] down_data,
-    output                down_valid,
-    input                 down_ready
+module fifo_dff #(
+    parameter WIDTH = 8,
+    parameter DEPTH = 8
+) (
+    input  logic             clk_i,
+    input  logic             rst_i,
+    input  logic             wr_en_i,
+    input  logic             rd_en_i,
+    input  logic [WIDTH-1:0] data_i,
+    output logic [WIDTH-1:0] data_o,
+    output logic             empty_o,
+    output logic             full_o
 );
 
-    localparam W_PTR = D_FIFO + 1;
+    // ------------------------------------------------------------------------
+    // Local parameters
+    // ------------------------------------------------------------------------
 
-    logic [W_FIFO - 1:0] data [2 ** D_FIFO - 1:0];
-    logic [W_PTR  - 1:0] rd_ptr;
-    logic [W_PTR  - 1:0] wr_ptr;
-    logic                push;
-    logic                pop;
-    logic                full;
-    logic                empty;
+    localparam W_PTR   = $clog2(DEPTH);
+    localparam MAX_PTR = W_PTR'(DEPTH - 1);
 
-    assign full = (rd_ptr[W_PTR - 2:0] == wr_ptr[W_PTR - 2:0]) &
-                  (rd_ptr[W_PTR - 1]   != wr_ptr[W_PTR - 1]);
+    // ------------------------------------------------------------------------
+    // Local signals
+    // ------------------------------------------------------------------------
 
-    assign empty = rd_ptr[W_PTR - 1:0] == wr_ptr[W_PTR - 1:0];
+    // FIFO control
+    logic             push;
+    logic             pop;
 
-    assign up_ready   = ~ full;
-    assign down_valid = ~ empty;
+    // Pointers
+    logic [W_PTR-1:0] wr_ptr;
+    logic [W_PTR-1:0] rd_ptr;
+    logic             wr_circle_odd;
+    logic             rd_circle_odd;
 
-    assign push = up_valid   & up_ready;
-    assign pop  = down_valid & down_ready;
+    logic [WIDTH-1:0] mem [DEPTH];
 
-    assign down_data = data[rd_ptr[W_PTR - 2:0]];
+    // ------------------------------------------------------------------------
+    // Main FIFO logic
+    // ------------------------------------------------------------------------
 
-    always_ff @(posedge clk)
-        if (rst) begin
-            rd_ptr <= '0;
-            wr_ptr <= '0;
+    assign push    = (wr_en_i && ~full_o) || (full_o && wr_en_i && rd_en_i);
+    assign pop     = rd_en_i && ~empty_o;
+
+    assign empty_o = (wr_ptr == rd_ptr) && (wr_circle_odd == rd_circle_odd);
+    assign full_o  = (wr_ptr == rd_ptr) && (wr_circle_odd != rd_circle_odd);
+
+    assign data_o  = mem[rd_ptr];
+
+    always_ff @(posedge clk_i) begin
+        if (push) begin
+            mem[wr_ptr] <= data_i;
         end
-        else begin
-            if (push) begin
-                assert(~full) else $error("Fifo overflow at %t", $time);
-                wr_ptr     <= wr_ptr + 1'b1;
-                data[wr_ptr[W_PTR - 2:0]] <= up_data;
-            end
-            if (pop) begin
-                assert(~empty) else $error("Fifo underflow at %t", $time);
-                rd_ptr     <= rd_ptr + 1'b1;
+    end
+
+    always_ff @(posedge clk_i) begin
+        if (rst_i) begin
+            wr_ptr        <= W_PTR'(0);
+            wr_circle_odd <= 1'b0;
+        end else if (push) begin
+            if (wr_ptr == MAX_PTR) begin
+                wr_ptr        <= W_PTR'(0);
+                wr_circle_odd <= ~wr_circle_odd;
+            end else begin
+                wr_ptr <= wr_ptr + 1'b1;
             end
         end
+    end
+
+    always_ff @(posedge clk_i) begin
+        if (rst_i) begin
+            rd_ptr        <= W_PTR'(0);
+            rd_circle_odd <= 1'b0;
+        end else if (pop) begin
+            if (rd_ptr == MAX_PTR) begin
+                rd_ptr        <= W_PTR'(0);
+                rd_circle_odd <= ~rd_circle_odd;
+            end else begin
+                rd_ptr <= rd_ptr + 1'b1;
+            end
+        end
+    end
 
 endmodule
