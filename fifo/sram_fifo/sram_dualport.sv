@@ -8,21 +8,21 @@ module sram_dualport #(
     input  logic              ren_i,
     input  logic [ADDR_W-1:0] waddr_i,
     input  logic [ADDR_W-1:0] raddr_i,
-    input  logic [WIDTH-1:0]  wdata_i,
-    output logic [WIDTH-1:0]  rdata_o
+    input  logic [ WIDTH-1:0]  data_i,
+    output logic [ WIDTH-1:0]  data_o
 );
 
-    logic [WIDTH-1:0] ram [DEPTH-1:0];
+    logic [WIDTH-1:0] sram [DEPTH];
 
     always_ff @(posedge clk_i) begin
         if (wen_i) begin
-            ram[waddr_i] <= wdata_i;
+            sram[waddr_i] <= data_i;
         end
     end
 
     always_ff @(posedge clk_i) begin
         if (ren_i) begin
-            rdata_o <= ram[raddr_i];
+            data_o <= sram[raddr_i];
         end
     end
 
