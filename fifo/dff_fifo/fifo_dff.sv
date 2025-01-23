@@ -39,7 +39,7 @@ module fifo_dff #(
     // Main FIFO logic
     // ------------------------------------------------------------------------
 
-    assign push    = (wr_en_i && ~full_o) || (full_o && wr_en_i && rd_en_i);
+    assign push    = wr_en_i && (~full_o || rd_en_i);
     assign pop     = rd_en_i && ~empty_o;
 
     assign empty_o = (wr_ptr == rd_ptr) && (wr_circle_odd == rd_circle_odd);
