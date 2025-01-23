@@ -27,7 +27,7 @@ module fifo_tb();
     logic [W_FIFO - 1:0] fifo_in  [$];
     logic [W_FIFO - 1:0] fifo_out [$];
 
-    fifo_dualport # (
+    fifo_singleport # (
         .WIDTH ( W_FIFO ),
         .DEPTH ( D_FIFO )
     ) DUT (
