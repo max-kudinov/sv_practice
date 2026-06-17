@@ -31,9 +31,9 @@ logic res_sign;
 logic [7:0] res_exponent;
 logic overflow;
 
-logic [31:0] pri_onehot;
+logic [23:0] pri_onehot;
 logic        prev_ones;
-logic [31:0] conv_table [5];
+logic [23:0] conv_table [5];
 logic [4:0]  normalize_shamt;
 
 always_comb begin
@@ -83,10 +83,10 @@ always_comb begin
 
     end
 
-    for (int i = 31; i >= 0; i--) begin
+    for (int i = 23; i >= 0; i--) begin
         prev_ones = '0;
 
-        for (int j = 31; j > i; j--)
+        for (int j = 23; j > i; j--)
             prev_ones |= add_result[j];
 
         pri_onehot[i] = add_result[i] && !prev_ones;
