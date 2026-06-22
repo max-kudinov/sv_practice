@@ -29,9 +29,11 @@ initial begin
             $display("Test: %d", i);
             $display("a: %f", a);
             $display("b: %f", b);
+            $display("a: %b", $shortrealtobits(a));
+            $display("b: %b", $shortrealtobits(b));
             $display("Actual: %f", $bitstoshortreal(sum));
             $display("Expected: %f", expected);
-            $display("Actual: %b", sum);
+            $display("Actual  : %b", sum);
             $display("Expected: %b\n", $shortrealtobits(expected));
             $finish;
         end
