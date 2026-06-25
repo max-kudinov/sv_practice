@@ -4,9 +4,13 @@
 `default_nettype none
 
 module fp_add (
-    input  var logic [31:0] num_1_i,
-    input  var logic [31:0] num_2_i,
-    output var logic [31:0] sum_o
+    input  var logic        clk,
+    input  var logic        rst,
+    input  var logic        valid_i,
+    input  var logic [31:0] num_a_i,
+    input  var logic [31:0] num_b_i,
+    output var logic [31:0] sum_o,
+    output var logic        valid_o
 );
 
 localparam int unsigned W_MANT     = 23;
@@ -14,79 +18,126 @@ localparam int unsigned W_MANT_EXT = W_MANT + 1;
 localparam int unsigned W_EXP      = 8;
 localparam int unsigned W_MANT_IDX = $clog2(W_MANT_EXT + 1);
 
-logic                  sign_1;
-logic                  sign_2;
-
-logic [W_EXP-1:0]      exponent_1;
-logic [W_EXP-1:0]      exponent_2;
-
-logic [W_MANT-1:0]     mantissa_1;
-logic [W_MANT-1:0]     mantissa_2;
-
-logic [W_MANT_EXT-1:0] mantissa_ext_1;
-logic [W_MANT_EXT-1:0] mantissa_ext_2;
-
-logic [W_MANT_EXT-1:0] mantissa_aligned_1;
-logic [W_MANT_EXT-1:0] mantissa_aligned_2;
-
-logic [W_MANT_EXT-1:0] add_result;
-logic [W_MANT-1:0]     mantissa_normalized;
-
+// Stage 0
+logic                  sign_a;
+logic                  sign_b;
+logic [W_EXP-1:0]      exponent_a;
+logic [W_EXP-1:0]      exponent_b;
+logic [W_MANT-1:0]     mantissa_a;
+logic [W_MANT-1:0]     mantissa_b;
+logic [W_MANT_EXT-1:0] mantissa_ext_a;
+logic [W_MANT_EXT-1:0] mantissa_ext_b;
+logic [W_MANT_EXT-1:0] mantissa_aligned_a;
+logic [W_MANT_EXT-1:0] mantissa_aligned_b;
 logic [W_EXP-1:0]      exponent_diff;
 logic                  shift_align_num;
 
-logic                  res_sign;
-logic [W_EXP-1:0]      res_exponent;
+// Stage 1
+logic                  valid_p1;
+logic                  sign_a_p1;
+logic                  sign_b_p1;
 logic                  overflow;
+logic                  res_sign;
+logic [W_MANT_EXT-1:0] add_result;
+logic [W_EXP-1:0]      exponent_a_p1;
+logic [W_EXP-1:0]      exponent_b_p1;
+logic [W_MANT_EXT-1:0] mantissa_aligned_a_p1;
+logic [W_MANT_EXT-1:0] mantissa_aligned_b_p1;
+logic                  shift_align_num_p1;
 
+// Stage 2
+logic                  valid_p2;
+logic [W_MANT_EXT-1:0] add_result_p2;
+logic                  overflow_p2;
+logic                  res_sign_p2;
+logic [W_EXP-1:0]      exponent_a_p2;
+logic [W_EXP-1:0]      exponent_b_p2;
+logic                  shift_align_num_p2;
 logic [W_MANT_EXT-1:0] pri_onehot;
 logic                  prev_ones;
 logic [W_MANT_EXT-1:0] conv_table [W_MANT_IDX];
 logic [W_MANT_IDX-1:0] normalize_shamt;
 
+// Stage 3
+logic [W_MANT_EXT-1:0] add_result_p3;
+logic                  overflow_p3;
+logic                  res_sign_p3;
+logic [W_EXP-1:0]      exponent_a_p3;
+logic [W_EXP-1:0]      exponent_b_p3;
+logic [W_EXP-1:0]      res_exponent;
+logic [W_MANT-1:0]     mantissa_normalized;
+logic                  shift_align_num_p3;
+
+// ============================================================================
+// Stage 0
+// ============================================================================
+
 always_comb begin
     // Decode
-    { sign_1, exponent_1, mantissa_1 } = num_1_i;
-    { sign_2, exponent_2, mantissa_2 } = num_2_i;
+    { sign_a, exponent_a, mantissa_a } = num_a_i;
+    { sign_b, exponent_b, mantissa_b } = num_b_i;
 
     // Prepend leading 1 if the number is not 0
-    if (exponent_1 != '0)
-        mantissa_ext_1 = { 1'b1, mantissa_1 };
+    if (exponent_a != '0)
+        mantissa_ext_a = { 1'b1, mantissa_a };
     else
-        mantissa_ext_1 = { 1'b0, mantissa_1 };
+        mantissa_ext_a = { 1'b0, mantissa_a };
 
-    if (exponent_2 != '0)
-        mantissa_ext_2 = { 1'b1, mantissa_2 };
+    if (exponent_b != '0)
+        mantissa_ext_b = { 1'b1, mantissa_b };
     else
-        mantissa_ext_2 = { 1'b0, mantissa_2 };
+        mantissa_ext_b = { 1'b0, mantissa_b };
 
     // Compare exponents
-    if (exponent_1 > exponent_2) begin
-        exponent_diff   = exponent_1 - exponent_2;
+    if (exponent_a > exponent_b) begin
+        exponent_diff   = exponent_a - exponent_b;
         shift_align_num = '0;
     end else begin
-        exponent_diff   = exponent_2 - exponent_1;
+        exponent_diff   = exponent_b - exponent_a;
         shift_align_num = '1;
     end
 
     // Shift smaller mantissa
     if (shift_align_num) begin
-        mantissa_aligned_1 = mantissa_ext_1 >> exponent_diff;
-        mantissa_aligned_2 = mantissa_ext_2;
+        mantissa_aligned_a = mantissa_ext_a >> exponent_diff;
+        mantissa_aligned_b = mantissa_ext_b;
     end else begin
-        mantissa_aligned_1 = mantissa_ext_1;
-        mantissa_aligned_2 = mantissa_ext_2 >> exponent_diff;
+        mantissa_aligned_a = mantissa_ext_a;
+        mantissa_aligned_b = mantissa_ext_b >> exponent_diff;
     end
+end
+
+// ============================================================================
+// Stage 1
+// ============================================================================
+
+always_ff @(posedge clk) begin
+    sign_a_p1             <= sign_a;
+    sign_b_p1             <= sign_b;
+    mantissa_aligned_a_p1 <= mantissa_aligned_a;
+    mantissa_aligned_b_p1 <= mantissa_aligned_b;
+    exponent_a_p1         <= exponent_a;
+    exponent_b_p1         <= exponent_b;
+    shift_align_num_p1    <= shift_align_num;
+end
+
+always_ff @(posedge clk)
+    if (rst)
+        valid_p1 <= '0;
+    else
+        valid_p1 <= valid_i;
+
+always_comb begin
 
     // Figure out the sign
-    if (sign_1 != sign_2) begin
+    if (sign_a_p1 != sign_b_p1) begin
         overflow = '0;
 
         // Subtract negative from positive
-        if (sign_1)
-            { res_sign, add_result } = mantissa_aligned_2 - mantissa_aligned_1;
+        if (sign_a_p1)
+            { res_sign, add_result } = mantissa_aligned_b_p1 - mantissa_aligned_a_p1;
         else
-            { res_sign, add_result } = mantissa_aligned_1 - mantissa_aligned_2;
+            { res_sign, add_result } = mantissa_aligned_a_p1 - mantissa_aligned_b_p1;
 
         // If the result is negative, take an absolute value
         if (res_sign)
@@ -94,18 +145,42 @@ always_comb begin
 
     end else begin
 
-        { overflow, add_result } = mantissa_aligned_1 + mantissa_aligned_2;
-        res_sign = sign_1;
+        { overflow, add_result } = mantissa_aligned_a_p1 + mantissa_aligned_b_p1;
+        res_sign = sign_a_p1;
 
     end
+
+end
+
+// ============================================================================
+// Stage 2
+// ============================================================================
+
+always_ff @(posedge clk) begin
+    add_result_p2      <= add_result;
+    overflow_p2        <= overflow;
+    res_sign_p2        <= res_sign;
+    exponent_a_p2      <= exponent_a_p1;
+    exponent_b_p2      <= exponent_b_p1;
+    shift_align_num_p2 <= shift_align_num_p1;
+end
+
+always_ff @(posedge clk)
+    if (rst)
+        valid_p2 <= '0;
+    else
+        valid_p2 <= valid_p1;
+
+
+always_comb begin
 
     for (int i = W_MANT_EXT-1; i >= 0; i--) begin
         prev_ones = '0;
 
         for (int j = W_MANT_EXT-1; j > i; j--)
-            prev_ones |= add_result[j];
+            prev_ones |= add_result_p2[j];
 
-        pri_onehot[i] = add_result[i] && !prev_ones;
+        pri_onehot[i] = add_result_p2[i] && !prev_ones;
     end
 
     for (int unsigned i = 0; i < W_MANT_EXT; i++)
@@ -115,31 +190,52 @@ always_comb begin
     for (int unsigned i = 0; i < W_MANT_EXT; i++)
             normalize_shamt[i] = |(conv_table[i] & pri_onehot);
 
+end
+
+// ============================================================================
+// Stage 3
+// ============================================================================
+
+always_ff @(posedge clk) begin
+    add_result_p3      <= add_result_p2;
+    overflow_p3        <= overflow_p2;
+    res_sign_p3        <= res_sign_p2;
+    exponent_a_p3      <= exponent_a_p2;
+    exponent_b_p3      <= exponent_b_p2;
+    shift_align_num_p3 <= shift_align_num_p2;
+end
+
+always_ff @(posedge clk)
+    if (rst)
+        valid_o <= '0;
+    else
+        valid_o <= valid_p2;
+
+always_comb begin
     // Adjust exponent
-    if (overflow) begin
+    if (overflow_p3) begin
 
-        if (shift_align_num)
-            res_exponent = exponent_2 + 1'b1;
+        if (shift_align_num_p3)
+            res_exponent = exponent_b_p3 + 1'b1;
         else
-            res_exponent = exponent_1 + 1'b1;
+            res_exponent = exponent_a_p3 + 1'b1;
 
-        mantissa_normalized = W_MANT'(add_result >> 1);
+        mantissa_normalized = W_MANT'(add_result_p3 >> 1);
 
     end else begin
 
-        if (add_result == '0)
+        if (add_result_p3 == '0)
             res_exponent = '0;
-        else if (shift_align_num)
-            res_exponent = exponent_2 - 8'(normalize_shamt);
+        else if (shift_align_num_p3)
+            res_exponent = exponent_b_p3 - 8'(normalize_shamt);
         else
-            res_exponent = exponent_1 - 8'(normalize_shamt);
+            res_exponent = exponent_a_p3 - 8'(normalize_shamt);
 
-        mantissa_normalized = W_MANT'(add_result << normalize_shamt);
+        mantissa_normalized = W_MANT'(add_result_p3 << normalize_shamt);
 
     end
 
-    sum_o = { res_sign, res_exponent, mantissa_normalized };
-
+    sum_o = { res_sign_p3, res_exponent, mantissa_normalized };
 end
 
 endmodule
