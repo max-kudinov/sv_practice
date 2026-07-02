@@ -27,3 +27,10 @@ unsigned int float_add(unsigned int a, unsigned int b) {
 
     return sum_conv.i_num;
 }
+
+double bin_to_real(unsigned int int_num) {
+    union float_bits_conv conv;
+
+    conv.i_num = int_num;
+    return (double) conv.f_num;
+}

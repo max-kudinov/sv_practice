@@ -1,4 +1,5 @@
 import "DPI-C" pure function int unsigned float_add(input int unsigned a, input int unsigned b);
+import "DPI-C" pure function real bin_to_real(input int unsigned int_num);
 
 module tb;
 
@@ -45,7 +46,9 @@ task driver;
 
         // Don't randomize inf and NaN
         if (std::randomize(rand_args) with {
+            rand_args.a[31] == '0;
             rand_args.a[30:23] != '1;
+            rand_args.b[31] == '0;
             rand_args.b[30:23] != '1;
         } != 1) begin
             $error("Failed to randomize input arguments");
@@ -94,17 +97,17 @@ task scoreboard;
             if (actual !== expected) begin
                 $display("ERROR");
                 $display("Check: %0d", n_checks);
-                $display("a:        %b", inputs.a);
-                $display("b:        %b", inputs.b);
-                $display("Actual:   %b", sum);
-                $display("Expected: %b\n", expected);
+                $display("a:        %b, %f", inputs.a, bin_to_real(inputs.a));
+                $display("b:        %b, %f", inputs.b, bin_to_real(inputs.b));
+                $display("Actual:   %b, %f", sum, bin_to_real(sum));
+                $display("Expected: %b, %f\n", expected, bin_to_real(expected));
                 $finish;
             end else begin
                 $display("GOOD");
-                $display("a:        %b", inputs.a);
-                $display("b:        %b", inputs.b);
-                $display("Actual:   %b", sum);
-                $display("Expected: %b\n", expected);
+                $display("a:        %b, %f", inputs.a, bin_to_real(inputs.a));
+                $display("b:        %b, %f", inputs.b, bin_to_real(inputs.b));
+                $display("Actual:   %b, %f", sum, bin_to_real(sum));
+                $display("Expected: %b, %f\n", expected, bin_to_real(expected));
             end
 
             n_checks++;
