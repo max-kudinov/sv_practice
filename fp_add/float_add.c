@@ -4,7 +4,9 @@
 #pragma STDC FENV_ACCESS ON
 
 union float_bits_conv {
-    float f_num;
+    // volatile to prevent compiler reordering and other optimizations,
+    // otherwise the float value could be calculated in the wrong rouding mode
+    volatile float f_num;
     unsigned int i_num;
 };
 

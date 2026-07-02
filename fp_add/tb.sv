@@ -102,18 +102,12 @@ task scoreboard;
                 $display("Actual:   %b, %f", sum, bin_to_real(sum));
                 $display("Expected: %b, %f\n", expected, bin_to_real(expected));
                 $finish;
-            end else begin
-                $display("GOOD");
-                $display("a:        %b, %f", inputs.a, bin_to_real(inputs.a));
-                $display("b:        %b, %f", inputs.b, bin_to_real(inputs.b));
-                $display("Actual:   %b, %f", sum, bin_to_real(sum));
-                $display("Expected: %b, %f\n", expected, bin_to_real(expected));
             end
 
             n_checks++;
 
-            if (n_checks == 100) begin
-                $display("PASS!");
+            if (n_checks == 1_000_000) begin
+                $display("All %d checks PASSED!", n_checks);
                 $finish;
             end
         end
