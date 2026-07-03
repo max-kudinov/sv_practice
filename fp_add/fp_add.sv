@@ -1,5 +1,6 @@
 // Almost* compliant IEEE-754 adder.
-// * rouding to 0 (truncation), +-inf as well as NaN are not handled
+// * rouding to 0 (truncation), +-inf as well as NaN are not supported, negative
+// numbers are not handled properly in some cases
 
 `default_nettype none
 
@@ -65,6 +66,7 @@ logic                  res_sign_p3;
 logic [W_EXP-1:0]      exponent_a_p3;
 logic [W_EXP-1:0]      exponent_b_p3;
 logic [W_EXP-1:0]      res_exponent;
+logic [W_EXP-1:0]      higher_exponent;
 logic [W_MANT-1:0]     mantissa_normalized;
 logic                  shift_align_num_p3;
 
@@ -87,6 +89,12 @@ always_comb begin
         mantissa_ext_b = { 1'b1, mantissa_b };
     else
         mantissa_ext_b = { 1'b0, mantissa_b };
+
+    // emin for subnormal numbers (IEEE 754-2019 3.4)
+    if (exponent_a == '0)
+        exponent_a = 8'd1;
+    if (exponent_b == '0)
+        exponent_b = 8'd1;
 
     // Compare exponents
     if (exponent_a > exponent_b) begin
@@ -212,24 +220,31 @@ always_ff @(posedge clk)
         valid_o <= valid_p2;
 
 always_comb begin
+
+    if (shift_align_num_p3)
+        higher_exponent = exponent_b_p3;
+    else
+        higher_exponent = exponent_a_p3;
+
     // Adjust exponent
     if (overflow_p3) begin
 
-        if (shift_align_num_p3)
-            res_exponent = exponent_b_p3 + 1'b1;
-        else
-            res_exponent = exponent_a_p3 + 1'b1;
-
-        mantissa_normalized = W_MANT'(add_result_p3 >> 1);
+        if (higher_exponent != 8'b11111110) begin
+            res_exponent        = higher_exponent + 1'b1;
+            mantissa_normalized = W_MANT'(add_result_p3 >> 1);
+        end else begin
+            // In round to zero mode, we set the result to format's largest
+            // finite number
+            res_exponent        = higher_exponent;
+            mantissa_normalized = '1;
+        end
 
     end else begin
 
         if (add_result_p3 == '0)
             res_exponent = '0;
-        else if (shift_align_num_p3)
-            res_exponent = exponent_b_p3 - 8'(normalize_shamt);
         else
-            res_exponent = exponent_a_p3 - 8'(normalize_shamt);
+            res_exponent = higher_exponent - 8'(normalize_shamt);
 
         mantissa_normalized = W_MANT'(add_result_p3 << normalize_shamt);
 
