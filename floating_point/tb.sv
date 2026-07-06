@@ -116,15 +116,15 @@ task scoreboard;
             if (actual !== expected) begin
                 $display("ERROR");
                 $display("Check: %0d", n_checks);
-                $display("a:        %b %b %b, %f",
+                $display("a:        %b %b %b, %e",
                     inputs.a[31], inputs.a[30:23], inputs.a[22:0], bin_to_real(inputs.a));
-                $display("b:        %b %b %b, %f",
+                $display("b:        %b %b %b, %e",
                     inputs.b[31], inputs.b[30:23], inputs.b[22:0], bin_to_real(inputs.b));
-                $display("Actual:   %b %b %b, %f",
+                $display("Actual:   %b %b %b, %e",
                     res[31], res[30:23], res[22:0], bin_to_real(res));
-                $display("Expected: %b %b %b, %f\n",
+                $display("Expected: %b %b %b, %e\n",
                     expected[31], expected[30:23], expected[22:0], bin_to_real(expected));
-                // $finish;
+                $finish;
             end
 
             n_checks++;
