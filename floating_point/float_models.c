@@ -10,7 +10,7 @@ union float_bits_conv {
     unsigned int i_num;
 };
 
-unsigned int float_add(unsigned int a, unsigned int b) {
+unsigned int float_op(unsigned int a, unsigned int b, int op) {
     union float_bits_conv a_conv;
     union float_bits_conv b_conv;
     union float_bits_conv sum_conv;
@@ -22,12 +22,24 @@ unsigned int float_add(unsigned int a, unsigned int b) {
 
     // Set IEEE 754 rounding mode towards zero
     fesetround(FE_TOWARDZERO);
-    sum_conv.f_num = a_conv.f_num + b_conv.f_num;
+
+    if (op == 0)
+        sum_conv.f_num = a_conv.f_num + b_conv.f_num;
+    else
+        sum_conv.f_num = a_conv.f_num * b_conv.f_num;
 
     // Reset rounding mode
     fesetround(original_rounding);
 
     return sum_conv.i_num;
+}
+
+unsigned int float_add(unsigned int a, unsigned int b) {
+    return float_op(a, b, 0);
+}
+
+unsigned int float_mult(unsigned int a, unsigned int b) {
+    return float_op(a, b, 1);
 }
 
 double bin_to_real(unsigned int int_num) {

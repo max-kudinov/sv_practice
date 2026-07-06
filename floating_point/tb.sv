@@ -1,6 +1,10 @@
-import "DPI-C" pure function int unsigned float_add(input int unsigned a, input int unsigned b);
-import "DPI-C" pure function int unsigned float_mult(input int unsigned a, input int unsigned b);
 import "DPI-C" pure function real bin_to_real(input int unsigned int_num);
+
+`ifdef MULT
+    import "DPI-C" pure function int unsigned float_mult(input int unsigned a, input int unsigned b);
+`else
+    import "DPI-C" pure function int unsigned float_add(input int unsigned a, input int unsigned b);
+`endif
 
 module tb;
 
@@ -13,8 +17,8 @@ logic        valid_i;
 logic        valid_o;
 logic [31:0] num_1;
 logic [31:0] num_2;
-logic [31:0] sum;
-int          n_checks;
+logic [31:0] res;
+int unsigned n_checks;
 
 always #1 clk = !clk;
 
@@ -26,13 +30,18 @@ typedef struct packed {
 mailbox #(args_t)       in_mbx  = new();
 mailbox #(logic [31:0]) out_mbx = new();
 
-fp_add fp_add (
+`ifdef MULT
+    fp_mult
+`else
+    fp_add
+`endif
+    DUT (
     .clk     (clk    ),
     .rst     (rst    ),
     .valid_i (valid_i),
     .num_a_i (num_1  ),
     .num_b_i (num_2  ),
-    .sum_o   (sum    ),
+    .num_o   (res    ),
     .valid_o (valid_o)
 );
 
@@ -82,7 +91,7 @@ task out_monitor;
         @(posedge clk);
 
         if (valid_o) begin
-            out_mbx.put(sum);
+            out_mbx.put(res);
         end
     end
 endtask
@@ -112,10 +121,10 @@ task scoreboard;
                 $display("b:        %b %b %b, %f",
                     inputs.b[31], inputs.b[30:23], inputs.b[22:0], bin_to_real(inputs.b));
                 $display("Actual:   %b %b %b, %f",
-                    sum[31], sum[30:23], sum[22:0], bin_to_real(sum));
+                    res[31], res[30:23], res[22:0], bin_to_real(res));
                 $display("Expected: %b %b %b, %f\n",
                     expected[31], expected[30:23], expected[22:0], bin_to_real(expected));
-                $finish;
+                // $finish;
             end
 
             n_checks++;

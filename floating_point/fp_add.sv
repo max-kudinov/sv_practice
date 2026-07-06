@@ -10,7 +10,7 @@ module fp_add (
     input  var logic        valid_i,
     input  var logic [31:0] num_a_i,
     input  var logic [31:0] num_b_i,
-    output var logic [31:0] sum_o,
+    output var logic [31:0] num_o,
     output var logic        valid_o
 );
 
@@ -80,7 +80,7 @@ always_comb begin
     { sign_a, exponent_a, mantissa_a } = num_a_i;
     { sign_b, exponent_b, mantissa_b } = num_b_i;
 
-    // Prepend leading 1 if the number is not 0
+    // Prepend leading 1 if the exponent is not 0
     if (exponent_a != '0)
         mantissa_ext_a = { 1'b1, mantissa_a };
     else
@@ -252,7 +252,7 @@ always_comb begin
 
     end
 
-    sum_o = { res_sign_p3, res_exponent, mantissa_normalized };
+    num_o = { res_sign_p3, res_exponent, mantissa_normalized };
 end
 
 endmodule
