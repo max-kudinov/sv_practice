@@ -69,6 +69,7 @@ logic [W_EXP-1:0]      res_exponent;
 logic [W_EXP-1:0]      higher_exponent;
 logic [W_MANT-1:0]     mantissa_normalized;
 logic                  shift_align_num_p3;
+logic [W_MANT_IDX-1:0] normalize_shamt_p3;
 
 // ============================================================================
 // Stage 0
@@ -211,6 +212,7 @@ always_ff @(posedge clk) begin
     exponent_a_p3      <= exponent_a_p2;
     exponent_b_p3      <= exponent_b_p2;
     shift_align_num_p3 <= shift_align_num_p2;
+    normalize_shamt_p3 <= normalize_shamt;
 end
 
 always_ff @(posedge clk)
@@ -244,9 +246,9 @@ always_comb begin
         if (add_result_p3 == '0)
             res_exponent = '0;
         else
-            res_exponent = higher_exponent - 8'(normalize_shamt);
+            res_exponent = higher_exponent - 8'(normalize_shamt_p3);
 
-        mantissa_normalized = W_MANT'(add_result_p3 << normalize_shamt);
+        mantissa_normalized = W_MANT'(add_result_p3 << normalize_shamt_p3);
 
     end
 
