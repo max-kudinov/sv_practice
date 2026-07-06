@@ -1,16 +1,20 @@
 import "DPI-C" pure function int unsigned float_add(input int unsigned a, input int unsigned b);
+import "DPI-C" pure function int unsigned float_mult(input int unsigned a, input int unsigned b);
 import "DPI-C" pure function real bin_to_real(input int unsigned int_num);
 
 module tb;
 
-bit clk;
-logic rst;
-logic valid_i;
-logic valid_o;
+localparam int unsigned N_CHECKS  = 10_000;
+localparam bit          CHECK_B2B = 0;
+
+bit          clk;
+logic        rst;
+logic        valid_i;
+logic        valid_o;
 logic [31:0] num_1;
 logic [31:0] num_2;
 logic [31:0] sum;
-int n_checks;
+int          n_checks;
 
 always #1 clk = !clk;
 
@@ -38,13 +42,14 @@ task driver;
         @(posedge clk);
         valid_i <= '0;
 
-        do
-            @(posedge clk);
-        while ($urandom_range(0, 1) != 0);
+        if (CHECK_B2B) begin
+            while ($urandom_range(0, 1) != 0)
+                @(posedge clk);
+        end
 
         valid_i <= '1;
 
-        // Don't randomize inf and NaN
+        // Don't randomize inf and NaN, as well as negative numbers
         if (std::randomize(rand_args) with {
             rand_args.a[31] == '0;
             rand_args.a[30:23] != '1;
@@ -90,7 +95,12 @@ task scoreboard;
     forever begin
         in_mbx.get(inputs);
         out_mbx.get(actual);
-        expected = float_add(inputs.a, inputs.b);
+
+        `ifdef MULT
+            expected = float_mult(inputs.a, inputs.b);
+        `else
+            expected = float_add(inputs.a, inputs.b);
+        `endif
 
         // Ignore unsupported +-inf and NaN results
         if (expected[30:23] != '1) begin
@@ -110,8 +120,8 @@ task scoreboard;
 
             n_checks++;
 
-            if (n_checks == 1_000_000) begin
-                $display("All %d checks PASSED!", n_checks);
+            if (n_checks == N_CHECKS) begin
+                $display("All %0d checks PASSED!", n_checks);
                 $finish;
             end
         end
