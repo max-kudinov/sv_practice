@@ -1,3 +1,8 @@
+// Somewhat compliant IEEE-754 multiplier.
+// Rounding to 0 (truncation)
+// Negative numbers are not handled, as well as inf and NaN
+// And yeah, subnormal input operands are not supported too
+
 `default_nettype none
 
 module fp_mult (
@@ -22,6 +27,7 @@ logic                  sign_b;
 logic [W_EXP-1:0]      exponent_a;
 logic [W_EXP-1:0]      exponent_b;
 logic [W_EXP-1:0]      exponent_sum;
+logic [W_EXP-1:0]      temp_sum;
 logic [W_EXP-1:0]      res_exponent;
 logic [W_EXP-1:0]      raw_exponent_sum;
 logic                  exponent_overflow;
@@ -55,14 +61,6 @@ always_comb begin
     else
         mantissa_ext_b = { 1'b0, mantissa_b };
 
-    // TODO: figure out emin for exp = 0
-
-    // if (exponent_a == '0)
-    //     exponent_a = 8'b1111_1101;
-    //
-    // if (exponent_b == '0)
-    //     exponent_b = 8'b1111_1101;
-
     mult_res_full = mantissa_ext_a * mantissa_ext_b;
 
     for (int i = W_MULT-1; i >= 0; i--) begin
@@ -81,9 +79,12 @@ always_comb begin
     for (int unsigned i = 0; i < W_MULT; i++)
             normalize_shamt[i] = |(conv_table[i] & pri_onehot);
 
-    exponent_sum       = (exponent_a - BIAS) + exponent_b + 8'(mult_res_full[47]);
-    exponent_overflow  =  exponent_a[7] &&  exponent_b[7] && !exponent_sum[7];
-    exponent_underflow = !exponent_a[7] && !exponent_b[7] &&  exponent_sum[7];
+    temp_sum           = (exponent_a - BIAS) + exponent_b;
+    exponent_sum       = temp_sum + 8'(mult_res_full[47]);
+    exponent_overflow  = (exponent_a[7] && exponent_b[7]) &&
+                         (!exponent_sum[7] || exponent_sum == '1);
+    exponent_underflow = (!exponent_a[7] && !exponent_b[7]) &&
+                         (temp_sum[7] || exponent_sum == '0);
     raw_exponent_sum   = exponent_a + exponent_b;
     subnormal_shift    = 5'(23'd127 - raw_exponent_sum);
 
@@ -94,7 +95,7 @@ always_comb begin
         res_exponent = '0;
 
         if (raw_exponent_sum > 103)
-            res_mantissa = 23'((24'd1 << 23) >> subnormal_shift);
+            res_mantissa = 23'(mult_res_full[W_MULT-1-:W_MANT_EXT] >> subnormal_shift);
         else
             res_mantissa = '0;
 
