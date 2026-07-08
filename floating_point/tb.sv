@@ -61,18 +61,20 @@ task driver;
         if (std::randomize(rand_args) with {
             // Multiplication with subnormals is not supported
             // because it's a pain
-            `ifdef MULT
+        `ifdef MULT
             if (rand_args.a[30:23] == '0)
                 rand_args.a[22:0] == '0;
 
             if (rand_args.b[30:23] == '0)
                 rand_args.b[22:0] == '0;
-            `endif
-
-            // Don't randomize inf and NaN, as well as negative numbers
+        `else
+            // Adder doesn't support negative numbers
             rand_args.a[31] == '0;
-            rand_args.a[30:23] != '1;
             rand_args.b[31] == '0;
+        `endif
+
+            // Don't randomize inf and NaN
+            rand_args.a[30:23] != '1;
             rand_args.b[30:23] != '1;
         } != 1) begin
             $error("Failed to randomize input arguments");

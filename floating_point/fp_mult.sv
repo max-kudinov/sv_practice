@@ -1,6 +1,5 @@
 // Somewhat compliant IEEE-754 multiplier.
-// Rounding to 0 (truncation)
-// Negative numbers are not handled, as well as inf and NaN
+// Rounding to 0 (truncation), inf and NaN are not handled
 // And yeah, subnormal input operands are not supported too
 
 `default_nettype none
@@ -24,10 +23,11 @@ localparam logic [7:0]  BIAS       = 127;
 
 logic                  sign_a;
 logic                  sign_b;
+logic                  res_sign;
 logic [W_EXP-1:0]      exponent_a;
 logic [W_EXP-1:0]      exponent_b;
 logic [W_EXP-1:0]      exponent_sum;
-logic [W_EXP-1:0]      temp_sum;
+logic [W_EXP-1:0]      bias_adjust_sum;
 logic [W_EXP-1:0]      res_exponent;
 logic [W_EXP-1:0]      raw_exponent_sum;
 logic                  exponent_overflow;
@@ -79,14 +79,15 @@ always_comb begin
     for (int unsigned i = 0; i < W_MULT; i++)
             normalize_shamt[i] = |(conv_table[i] & pri_onehot);
 
-    temp_sum           = (exponent_a - BIAS) + exponent_b;
-    exponent_sum       = temp_sum + 8'(mult_res_full[47]);
+    raw_exponent_sum   = exponent_a + exponent_b;
+    bias_adjust_sum    = raw_exponent_sum - BIAS;
+    exponent_sum       = bias_adjust_sum + 8'(mult_res_full[47]);
     exponent_overflow  = (exponent_a[7] && exponent_b[7]) &&
                          (!exponent_sum[7] || exponent_sum == '1);
     exponent_underflow = (!exponent_a[7] && !exponent_b[7]) &&
-                         (temp_sum[7] || exponent_sum == '0);
-    raw_exponent_sum   = exponent_a + exponent_b;
+                         (bias_adjust_sum[7] || exponent_sum == '0);
     subnormal_shift    = 5'(23'd127 - raw_exponent_sum);
+    res_sign           = sign_a ^ sign_b;
 
     if (exponent_overflow) begin
         res_exponent = 8'b11111110;
@@ -104,7 +105,7 @@ always_comb begin
         res_mantissa = {mult_res_full << normalize_shamt}[W_MULT-2-:W_MANT];
     end
 
-    num_o   = { 1'b0, res_exponent, res_mantissa };
+    num_o   = { res_sign, res_exponent, res_mantissa };
     valid_o = valid_i;
 
 end
