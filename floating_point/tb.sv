@@ -153,6 +153,7 @@ always begin
     $dumpfile("dump.fst");
     $dumpvars;
 
+    @(posedge clk);
     rst <= '1;
     @(posedge clk);
     rst <= '0;
