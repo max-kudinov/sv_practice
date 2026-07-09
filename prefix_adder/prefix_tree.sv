@@ -1,19 +1,32 @@
 module prefix_tree #(
     parameter type pg_block_t,
-    parameter int unsigned WIDTH
+    parameter int unsigned WIDTH,
+    parameter int unsigned N_ROWS
 ) (
+    input  var logic      clk,
     input  var pg_block_t inputs  [WIDTH],
     output var pg_block_t outputs [WIDTH]
 );
 
 generate if (WIDTH == 1) begin : input_connect_gen
 
-    assign outputs = inputs;
+    if (N_ROWS == 1) begin : register_align_gen
+
+        // Additional register for prefix network alignment
+        always_ff @(posedge clk)
+            outputs <= inputs;
+
+    end else begin : comb__gen
+
+        assign outputs = inputs;
+
+    end
 
 end else begin : tree_gen
 
-    localparam int unsigned LEFT_WIDTH  = WIDTH / 2;
-    localparam int unsigned RIGHT_WIDTH = WIDTH - LEFT_WIDTH;
+    localparam int unsigned RIGHT_WIDTH    = WIDTH / 2;
+    localparam int unsigned LEFT_WIDTH     = WIDTH - RIGHT_WIDTH;
+    localparam int unsigned REMAINING_ROWS = N_ROWS - 1;
 
     pg_block_t left_inputs   [LEFT_WIDTH];
     pg_block_t left_outputs  [LEFT_WIDTH];
@@ -24,9 +37,11 @@ end else begin : tree_gen
     assign left_inputs = inputs[RIGHT_WIDTH:WIDTH-1];
 
     prefix_tree #(
-        .pg_block_t (pg_block_t),
-        .WIDTH      (LEFT_WIDTH)
-    ) left_tree (
+        .pg_block_t (pg_block_t    ),
+        .WIDTH      (LEFT_WIDTH    ),
+        .N_ROWS     (REMAINING_ROWS)
+    ) left_leaf (
+        .clk     (clk         ),
         .inputs  (left_inputs ),
         .outputs (left_outputs)
     );
@@ -44,15 +59,20 @@ end else begin : tree_gen
     assign right_inputs = inputs[0:RIGHT_WIDTH-1];
 
     prefix_tree #(
-        .pg_block_t (pg_block_t ),
-        .WIDTH      (RIGHT_WIDTH)
-    ) right_tree (
+        .pg_block_t (pg_block_t    ),
+        .WIDTH      (RIGHT_WIDTH   ),
+        .N_ROWS     (REMAINING_ROWS)
+    ) right_leaf (
+        .clk     (clk          ),
         .inputs  (right_inputs ),
         .outputs (right_outputs)
     );
 
-    assign outputs[0:RIGHT_WIDTH-1]     = right_outputs;
-    assign outputs[RIGHT_WIDTH:WIDTH-1] = left_prefixes;
+    // Register leaf outputs
+    always_ff @(posedge clk) begin
+        outputs[0:RIGHT_WIDTH-1]     <= right_outputs;
+        outputs[RIGHT_WIDTH:WIDTH-1] <= left_prefixes;
+    end
 
 end endgenerate
 
